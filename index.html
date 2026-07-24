@@ -349,7 +349,7 @@ body { font-family: 'Playfair Display', serif; background-color: var(--branco); 
       <button class="btn-small btn-maps" onclick="openModal('modal-local')"><i class="fa-solid fa-location-dot"></i> Localização</button>
       <button class="btn-small btn-gifts" onclick="openModal('modal-presentes'); refreshGifts();"><i class="fa-solid fa-gift"></i> Nos presenteie</button>
       <button class="btn-small btn-schedule" onclick="openModal('modal-programacao')"><i class="fa-regular fa-clock"></i> Programação</button>
-      <button class="btn-small btn-manual" onclick="openModal('modal-manual')"><i class="fa-solid fa-book-open"></i> Guia de Orientação</button>
+      <button class="btn-small btn-manual" onclick="openModal('modal-manual')"><i class="fa-solid fa-book-open"></i> Manual</button>
       <button class="btn-small btn-vip" onclick="abrirModalManuais()"><i class="fa-solid fa-crown"></i> Manuais</button>
       <button class="btn-small btn-gallery" onclick="openModal('modal-galeria');"><i class="fa-solid fa-image"></i> Galeria</button>
     </div>
@@ -1141,7 +1141,7 @@ async function renderPainel() {
     out += '<div class="painel-sec">👥 Convidados (' + cv.size + ')</div>';
     cv.docs.forEach(d => {
       const nome = d.data().nome || '';
-      PAINEL_CONVIDADOS[d.id] = nome;
+      PAINEL_CONVIDADOS[d.id] = { nome: nome, pessoas: d.data().pessoas || [] };
       out += '<div class="painel-item">' + escapeHtml(nome) + ' — <b>' + d.id + '</b><br>' +
              '<button class="painel-btn" data-acao="copiar" data-code="' + d.id + '">Copiar convite (WhatsApp)</button></div>';
     });
@@ -1249,9 +1249,13 @@ async function painelAcao(ev) {
   }
   if (acao === 'copiar') {
     const code = btn.dataset.code;
-    const nome = PAINEL_CONVIDADOS[code] || '';
+    const info = PAINEL_CONVIDADOS[code] || { nome: '', pessoas: [] };
+    const nome = info.nome || '';
+    const ehGrupo = (info.pessoas || []).length >= 2;
     const link = location.origin + location.pathname + '?convite=' + code;
-    const msg = 'Olá, ' + nome + '! 💛 Com muito carinho, convidamos você para o nosso casamento. Acesse seu convite personalizado: ' + link;
+    const msg = ehGrupo
+      ? 'Olá, ' + nome + '! 💛 Com muito carinho, convidamos vocês para o nosso casamento. Acessem o convite personalizado de vocês: ' + link
+      : 'Olá, ' + nome + '! 💛 Com muito carinho, convidamos você para o nosso casamento. Acesse seu convite personalizado: ' + link;
     try { await navigator.clipboard.writeText(msg); alert('Mensagem copiada! É só colar no WhatsApp do convidado.'); }
     catch (e) { prompt('Copie a mensagem:', msg); }
   }
