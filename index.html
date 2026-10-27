@@ -277,6 +277,9 @@ body { font-family: 'Playfair Display', serif; background-color: var(--branco); 
 .ticket-card .tk-qr { display: flex; justify-content: center; }
 .ticket-card .tk-baixar { margin-top: 8px; background: var(--azul-petroleo); color: #fff; border: none; border-radius: 8px; padding: 7px 10px; font-family: 'Montserrat',sans-serif; font-size: .72rem; cursor: pointer; }
 .rsvp-ok { background: #f1f8ee; border: 1px solid #b9d9ae; border-radius: 12px; padding: 14px; margin: 6px 0 10px; font-family: 'Montserrat',sans-serif; font-size: .9rem; color: #2f5d24; }
+.rsvp-extra-box { background: #fffaf0; border: 1px dashed var(--dourado); border-radius: 12px; padding: 12px 14px; margin: 6px 0 10px; font-family: 'Montserrat',sans-serif; font-size: .9rem; color: #5a4a1a; text-align: left; }
+.rsvp-extra-box small { color: #7a6a3a; }
+.rsvp-extra-box button { background: var(--azul-petroleo); color: #fff; border: none; border-radius: 8px; padding: 9px 14px; font-family: 'Montserrat',sans-serif; font-size: .8rem; margin-top: 6px; cursor: pointer; }
 .painel-sec { margin: 20px 0 8px; font-weight: 700; color: var(--azul-petroleo); border-bottom: 1px solid #ddd; padding-bottom: 4px; font-size: 1rem; }
 .painel-item { padding: 8px 4px; border-bottom: 1px solid #eee; }
 .painel-item small { color: #777; }
@@ -1263,6 +1266,9 @@ async function carregarEstadoRsvp() {
         const x = d.data();
         RSVP_ESTADO = { codigo, nome: x.nome || '', acompanhantes: x.acompanhantes || '', pessoas: x.pessoas || [], publicoId: x.publicoId || '', tickets: ticketsDaConfirmacao(codigo, x.pessoas) };
         lsSetObj(chave, { base: codigo, nome: RSVP_ESTADO.nome, acompanhantes: RSVP_ESTADO.acompanhantes, pessoas: RSVP_ESTADO.pessoas, publicoId: RSVP_ESTADO.publicoId });
+        /* repara ingressos se este aparelho ainda não conferiu, ou se a família ganhou pessoas em outro aparelho */
+        const mudou = !local || (local.pessoas || []).length !== RSVP_ESTADO.pessoas.length;
+        if (mudou) { try { localStorage.removeItem('rsvp_ok_' + codigo); } catch (e) {} }
         if (!lsGetObj('rsvp_ok_' + codigo).ok) garantirRegistrosRsvp(RSVP_ESTADO).catch(() => {});
       } else {
         /* os noivos reabriram (ou nunca existiu): esquece qualquer cópia local */
@@ -1273,6 +1279,48 @@ async function carregarEstadoRsvp() {
     RSVP_ESTADO = doLocal();
   }
   aplicarEstadoRsvp();
+}
+
+/* Pessoas da família que ainda não foram confirmadas (a família pode voltar e confirmar depois) */
+function rsvpFaltam() {
+  const todos = (CONVIDADO && CONVIDADO.pessoas && CONVIDADO.pessoas.length) ? CONVIDADO.pessoas : [];
+  const ja = (RSVP_ESTADO && RSVP_ESTADO.pessoas) || [];
+  return todos.filter(n => ja.indexOf(n) === -1);
+}
+
+async function confirmarMaisPessoas() {
+  const codigo = rsvpCodigoAtual();
+  if (!RSVP_ESTADO || !codigo || !db) return;
+  const faltam = rsvpFaltam();
+  const novas = Array.from(document.querySelectorAll('.rsvp-extra:checked')).map(c => c.value).filter(n => faltam.indexOf(n) !== -1);
+  if (!novas.length) { alert('Marque pelo menos uma pessoa para confirmar.'); return; }
+  const btn = document.getElementById('rsvp-extra-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Enviando...'; }
+  const antes = RSVP_ESTADO;
+  const pessoas = antes.pessoas.concat(novas);
+  const dados = { nome: antes.nome, acompanhantes: pessoas.join(', '), pessoas, timestamp: firebase.firestore.FieldValue.serverTimestamp() };
+  if (antes.publicoId) dados.publicoId = antes.publicoId;
+  let gravou = false;
+  try {
+    /* as regras só aceitam esta alteração se ela APENAS acrescentar pessoas */
+    await comTimeout(db.collection('confirmacoes').doc(codigo).set(dados), 10000);
+    gravou = true;
+  } catch (e) { console.log('Erro ao confirmar mais pessoas:', e); }
+  if (!gravou) {
+    await carregarEstadoRsvp();
+    alert('Não consegui confirmar agora. Atualizei a tela com o que está salvo — confira se a pessoa já aparece como confirmada e, se não, tente de novo em instantes.');
+    return;
+  }
+  const est = { codigo, nome: antes.nome, acompanhantes: dados.acompanhantes, pessoas, publicoId: antes.publicoId || '', tickets: ticketsDaConfirmacao(codigo, pessoas) };
+  RSVP_ESTADO = est;
+  lsSetObj(rsvpChaveLocal(), { base: codigo, nome: est.nome, acompanhantes: est.acompanhantes, pessoas, publicoId: est.publicoId });
+  try { localStorage.removeItem('rsvp_ok_' + codigo); } catch (e) {}
+  let aviso = false;
+  try { await garantirRegistrosRsvp(est); } catch (e2) { aviso = true; console.log('Ingressos pendentes:', e2); }
+  aplicarEstadoRsvp();
+  alert(aviso
+    ? 'Presença confirmada! 💛 Os ingressos novos ainda estão sendo finalizados: abra esta tela de novo em instantes.'
+    : 'Pronto! Confirmei ' + novas.join(', ') + ' e os ingressos novos já estão logo abaixo. 🎟️💛');
 }
 
 function aplicarEstadoRsvp() {
@@ -1286,9 +1334,18 @@ function aplicarEstadoRsvp() {
   if (RSVP_ESTADO) {
     form.style.display = 'none';
     box.style.display = 'block';
-    box.innerHTML = '<div class="rsvp-ok">✅ <b>Presença confirmada!</b><br><small>Confirmada para: ' + escapeHtml((RSVP_ESTADO.pessoas || []).join(', ')) + '</small></div>';
+    const faltam = db ? rsvpFaltam() : [];
+    let extra = '';
+    if (faltam.length) {
+      extra = '<div class="rsvp-extra-box"><b>Falta alguém?</b><br><small>Se mais alguém da família for à festa, marque e confirme aqui para gerar o ingresso:</small>';
+      faltam.forEach(n => {
+        extra += '<div style="text-align:left;margin:7px 0;"><label style="font-weight:400;"><input type="checkbox" class="rsvp-extra" value="' + escapeAttr(n) + '"> ' + escapeHtml(n) + '</label></div>';
+      });
+      extra += '<button type="button" id="rsvp-extra-btn" onclick="confirmarMaisPessoas()">Confirmar também</button></div>';
+    }
+    box.innerHTML = '<div class="rsvp-ok">✅ <b>Presença confirmada!</b><br><small>Confirmada para: ' + escapeHtml((RSVP_ESTADO.pessoas || []).join(', ')) + '</small></div>' + extra;
     mostrarTickets(RSVP_ESTADO.tickets);
-    if (btn) btn.innerHTML = '<i class="fa-solid fa-ticket"></i> Presença confirmada — ver ingressos';
+    if (btn) btn.innerHTML = '<i class="fa-solid fa-ticket"></i> ' + (faltam.length ? 'Ver ingressos / confirmar mais pessoas' : 'Presença confirmada — ver ingressos');
     if (nao) nao.style.display = 'none';
   } else {
     form.style.display = '';
