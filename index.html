@@ -542,7 +542,7 @@ body { font-family: 'Playfair Display', serif; background-color: var(--branco); 
 </div>
 <!-- Painel dos noivos -->
 <div class="overlay-modal" id="modal-painel">
-  <button class="modal-close" onclick="closeModal('modal-painel')">✕</button>
+  <button class="modal-close" onclick="fecharPainel()">✕</button>
   <div class="modal-inner">
     <div class="modal-header modal-preto" id="painel-titulo">Acesso da equipe</div>
     <div id="painel-conteudo" style="text-align:left;font-family:'Montserrat',sans-serif;font-size:0.88rem;"></div>
@@ -1498,6 +1498,12 @@ async function renderPainel() {
   }
 }
 
+function fecharPainel() {
+  closeModal('modal-painel');
+  /* sem login (nem de convidado, nem da equipe) o convite continua trancado atrás da tela de código */
+  const equipe = !!(EQUIPE && (PAPEL === 'noivos' || PAPEL === 'cerimonial'));
+  if (equipe || CONVIDADO) closeModal('modal-login'); else openModal('modal-login');
+}
 async function abrirPainel() {
   openModal('modal-painel');
   const el = document.getElementById('painel-conteudo');
@@ -1693,7 +1699,7 @@ function autenticarManual(ev) {
       identificar(document.getElementById('login-codigo').value, document.getElementById('login-status'));
     });
     const ln = document.getElementById('login-noivos');
-    if (ln) ln.addEventListener('click', () => { closeModal('modal-login'); abrirPainel(); });
+    if (ln) ln.addEventListener('click', () => { abrirPainel(); });
     const painelMode = getParam('painel') !== null;
     const manualParam = getParam('manual');
     const ob = document.getElementById('open-btn');
