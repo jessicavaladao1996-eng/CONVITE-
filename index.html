@@ -1379,8 +1379,18 @@ function autenticarManual(ev) {
       } else alert('Senha incorreta.');
     });
     const painelMode = getParam('painel') !== null;
+    const manualParam = getParam('manual');
     const ob = document.getElementById('open-btn');
-    if (ob && !painelMode) ob.addEventListener('click', () => setTimeout(() => { if (!CONVIDADO) openModal('modal-login'); }, 2600));
+    if (ob && !painelMode) ob.addEventListener('click', () => setTimeout(() => {
+      if (manualParam) {
+        abrirModalManuais();
+        const campo = document.getElementById('manual-senha');
+        if (campo) campo.value = manualParam;
+        autenticarManual({ preventDefault: () => {} });
+      } else if (!CONVIDADO) {
+        openModal('modal-login');
+      }
+    }, 2600));
     const pc = document.getElementById('painel-conteudo');
     if (pc) pc.addEventListener('click', painelAcao);
     const mlf = document.getElementById('manual-login-form');
