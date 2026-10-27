@@ -957,7 +957,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         .catch((err) => { musicToggle.style.display = 'flex'; console.log('Não foi possível iniciar a música automaticamente:', err); });
     }
     envelope.classList.add('open');
-    setTimeout(() => { document.getElementById('envelope-screen').classList.add('hidden'); setTimeout(() => mainContent.classList.add('visible'), 500); }, 2900);
+    setTimeout(() => { const es = document.getElementById('envelope-screen'); es.classList.add('hidden'); es.style.pointerEvents = 'none'; setTimeout(() => mainContent.classList.add('visible'), 500); }, 2900);
   });
 
   musicToggle.addEventListener('click', () => {
@@ -1113,7 +1113,7 @@ async function renderPainel() {
   const el = document.getElementById('painel-conteudo');
   el.innerHTML = '<p>Carregando...</p>';
   if (!db) { el.innerHTML = '<p>O painel funciona apenas no site publicado.</p>'; return; }
-  const nomes = ['convidados', 'confirmados', 'recados', 'presentes_reservas', 'presentes_log', 'presentes_links', 'checkins'];
+  const nomes = ['convidados', 'confirmados', 'recados', 'presentes_reservas', 'presentes_log', 'presentes_links', 'checkins', 'convites_especiais'];
   const resultados = await Promise.allSettled(nomes.map(n => comTimeout(db.collection(n).get(), 15000)));
   const falhas = resultados.filter(r => r.status === 'rejected');
   if (falhas.length === nomes.length) {
@@ -1122,7 +1122,7 @@ async function renderPainel() {
     return;
   }
   const vazio = { size: 0, docs: [] };
-  const [cv, cf, rc, rs, lg, lk, ck] = resultados.map(r => r.status === 'fulfilled' ? r.value : vazio);
+  const [cv, cf, rc, rs, lg, lk, ck, ce] = resultados.map(r => r.status === 'fulfilled' ? r.value : vazio);
   try {
     PAINEL_CONVIDADOS = {};
     const checkinSet = {};
@@ -1181,6 +1181,17 @@ async function renderPainel() {
              '<button class="painel-btn" data-acao="ajuste" data-i="' + i + '" data-delta="1">+ descontar 1</button>' +
              '<input class="painel-input" id="mp-link-' + i + '" placeholder="cole aqui o link da InfinitePay" value="' + escapeHtml(links[String(i)] || '') + '">' +
              '<button class="painel-btn" data-acao="salvarlink" data-i="' + i + '">Salvar link</button></div>';
+    });
+
+    out += '<div class="painel-sec">💍 Convite especial (padrinhos e cortejo)</div>';
+    const respostasConvite = {};
+    ce.docs.forEach(d => { respostasConvite[d.id] = d.data(); });
+    MANUAIS_DB.filter(m => m.convite).forEach(m => {
+      const r = respostasConvite[normalizarSenha(m.senha)];
+      let statusTxt = '⏳ Ainda não respondeu';
+      if (r && r.resposta === 'aceito') statusTxt = '✅ Aceitou';
+      else if (r && r.resposta === 'recusado') statusTxt = '❌ Recusou';
+      out += '<div class="painel-item">' + escapeHtml(m.papel) + ' — <b>' + escapeHtml(m.nome) + '</b>: ' + statusTxt + '</div>';
     });
 
     out += '<div class="painel-sec">🧹 Manutenção</div>';
@@ -1285,31 +1296,31 @@ async function painelAcao(ev) {
 }
 
 const MANUAIS_DB = [
-  { senha: 'somospadrinhosel', nome: 'Edmar e Lorrane', papel: 'Padrinhos', genero: 'plural', arquivo: 'manual-padrinhos.html' },
-  { senha: 'somospadrinhosjr', nome: 'Jaqueline e Roberto', papel: 'Padrinhos', genero: 'plural', arquivo: 'manual-padrinhos.html' },
-  { senha: 'somospadrinhosbv', nome: 'Bruno e Vanessa', papel: 'Padrinhos', genero: 'plural', arquivo: 'manual-padrinhos.html' },
-  { senha: 'somospadrinhospg', nome: 'Priscila e Geovane', papel: 'Padrinhos', genero: 'plural', arquivo: 'manual-padrinhos.html' },
-  { senha: 'somospadrinhosrv', nome: 'Rafaela e Vagner', papel: 'Padrinhos', genero: 'plural', arquivo: 'manual-padrinhos.html' },
-  { senha: 'somospadrinhosif', nome: 'Ivanilda e Fábio', papel: 'Padrinhos', genero: 'plural', arquivo: 'manual-padrinhos.html' },
-  { senha: 'somospadrinhosjb', nome: 'Julia e Bruno', papel: 'Padrinhos', genero: 'plural', arquivo: 'manual-padrinhos.html' },
-  { senha: 'joaopadrinho', nome: 'João Vitor', papel: 'Padrinho', genero: 'm', arquivo: 'manual-padrinho.html' },
-  { senha: 'eduardopadrinho', nome: 'Eduardo', papel: 'Padrinho', genero: 'm', arquivo: 'manual-padrinho.html' },
-  { senha: 'giovanipadrinho', nome: 'Giovani', papel: 'Padrinho', genero: 'm', arquivo: 'manual-padrinho.html' },
-  { senha: 'leticiamadrinha', nome: 'Letícia', papel: 'Madrinha', genero: 'f', arquivo: 'manual-madrinha.html' },
-  { senha: 'anapaulamadrinha', nome: 'Ana Paula', papel: 'Madrinha', genero: 'f', arquivo: 'manual-madrinha.html' },
-  { senha: 'alinemadrinha', nome: 'Aline', papel: 'Madrinha', genero: 'f', arquivo: 'manual-madrinha.html' },
-  { senha: 'alanamadrinha', nome: 'Alana', papel: 'Madrinha', genero: 'f', arquivo: 'manual-madrinha.html' },
-  { senha: 'manzanomadrinha', nome: 'Adriana Manzano', papel: 'Madrinha', genero: 'f', arquivo: 'manual-madrinha.html' },
-  { senha: 'isabelamadrinha', nome: 'Isabela', papel: 'Madrinha', genero: 'f', arquivo: 'manual-madrinha.html' },
-  { senha: 'marcelamadrinha', nome: 'Marcela', papel: 'Madrinha', genero: 'f', arquivo: 'manual-madrinha.html' },
-  { senha: 'geovanadamadehonra', nome: 'Geovana', papel: 'Demoiselle', genero: 'f', arquivo: 'manual-demoiselle.html' },
-  { senha: 'larissadamadehonra', nome: 'Larissa', papel: 'Demoiselle', genero: 'f', arquivo: 'manual-demoiselle.html' },
-  { senha: 'felipehomemdehonra', nome: 'Felipe', papel: 'Groomsmen', genero: 'm', arquivo: 'manual-groomsmen.html' },
-  { senha: 'gustavohomemdehonra', nome: 'Gustavo', papel: 'Groomsmen', genero: 'm', arquivo: 'manual-groomsmen.html' },
-  { senha: 'noivinhahelena', nome: 'Helena', papel: 'Daminha', genero: 'f', arquivo: 'manual-daminha.html' },
-  { senha: 'noivinhaisis', nome: 'Ísis', papel: 'Daminha', genero: 'f', arquivo: 'manual-daminha.html' },
-  { senha: 'noivinhamaria', nome: 'Maria Clara', papel: 'Daminha', genero: 'f', arquivo: 'manual-daminha.html' },
-  { senha: 'noivinhohenrique', nome: 'Henrique', papel: 'Pajem', genero: 'm', arquivo: 'manual-pajem.html' },
+  { senha: 'somospadrinhosel', nome: 'Edmar e Lorrane', papel: 'Padrinhos', genero: 'plural', arquivo: 'manual-padrinhos.html', convite: 'padrinho' },
+  { senha: 'somospadrinhosjr', nome: 'Jaqueline e Roberto', papel: 'Padrinhos', genero: 'plural', arquivo: 'manual-padrinhos.html', convite: 'padrinho' },
+  { senha: 'somospadrinhosbv', nome: 'Bruno e Vanessa', papel: 'Padrinhos', genero: 'plural', arquivo: 'manual-padrinhos.html', convite: 'padrinho' },
+  { senha: 'somospadrinhospg', nome: 'Priscila e Geovane', papel: 'Padrinhos', genero: 'plural', arquivo: 'manual-padrinhos.html', convite: 'padrinho' },
+  { senha: 'somospadrinhosrv', nome: 'Rafaela e Vagner', papel: 'Padrinhos', genero: 'plural', arquivo: 'manual-padrinhos.html', convite: 'padrinho' },
+  { senha: 'somospadrinhosif', nome: 'Ivanilda e Fábio', papel: 'Padrinhos', genero: 'plural', arquivo: 'manual-padrinhos.html', convite: 'padrinho' },
+  { senha: 'somospadrinhosjb', nome: 'Julia e Bruno', papel: 'Padrinhos', genero: 'plural', arquivo: 'manual-padrinhos.html', convite: 'padrinho' },
+  { senha: 'joaopadrinho', nome: 'João Vitor', papel: 'Padrinho', genero: 'm', arquivo: 'manual-padrinho.html', convite: 'padrinho' },
+  { senha: 'eduardopadrinho', nome: 'Eduardo', papel: 'Padrinho', genero: 'm', arquivo: 'manual-padrinho.html', convite: 'padrinho' },
+  { senha: 'giovanipadrinho', nome: 'Giovani', papel: 'Padrinho', genero: 'm', arquivo: 'manual-padrinho.html', convite: 'padrinho' },
+  { senha: 'leticiamadrinha', nome: 'Letícia', papel: 'Madrinha', genero: 'f', arquivo: 'manual-madrinha.html', convite: 'padrinho' },
+  { senha: 'anapaulamadrinha', nome: 'Ana Paula', papel: 'Madrinha', genero: 'f', arquivo: 'manual-madrinha.html', convite: 'padrinho' },
+  { senha: 'alinemadrinha', nome: 'Aline', papel: 'Madrinha', genero: 'f', arquivo: 'manual-madrinha.html', convite: 'padrinho' },
+  { senha: 'alanamadrinha', nome: 'Alana', papel: 'Madrinha', genero: 'f', arquivo: 'manual-madrinha.html', convite: 'padrinho' },
+  { senha: 'manzanomadrinha', nome: 'Adriana Manzano', papel: 'Madrinha', genero: 'f', arquivo: 'manual-madrinha.html', convite: 'padrinho' },
+  { senha: 'isabelamadrinha', nome: 'Isabela', papel: 'Madrinha', genero: 'f', arquivo: 'manual-madrinha.html', convite: 'padrinho' },
+  { senha: 'marcelamadrinha', nome: 'Marcela', papel: 'Madrinha', genero: 'f', arquivo: 'manual-madrinha.html', convite: 'padrinho' },
+  { senha: 'geovanadamadehonra', nome: 'Geovana', papel: 'Demoiselle', genero: 'f', arquivo: 'manual-demoiselle.html', convite: 'cortejo' },
+  { senha: 'larissadamadehonra', nome: 'Larissa', papel: 'Demoiselle', genero: 'f', arquivo: 'manual-demoiselle.html', convite: 'cortejo' },
+  { senha: 'felipehomemdehonra', nome: 'Felipe', papel: 'Groomsmen', genero: 'm', arquivo: 'manual-groomsmen.html', convite: 'cortejo' },
+  { senha: 'gustavohomemdehonra', nome: 'Gustavo', papel: 'Groomsmen', genero: 'm', arquivo: 'manual-groomsmen.html', convite: 'cortejo' },
+  { senha: 'noivinhahelena', nome: 'Helena', papel: 'Daminha', genero: 'f', arquivo: 'manual-daminha.html', convite: 'cortejo' },
+  { senha: 'noivinhaisis', nome: 'Ísis', papel: 'Daminha', genero: 'f', arquivo: 'manual-daminha.html', convite: 'cortejo' },
+  { senha: 'noivinhamaria', nome: 'Maria Clara', papel: 'Daminha', genero: 'f', arquivo: 'manual-daminha.html', convite: 'cortejo' },
+  { senha: 'noivinhohenrique', nome: 'Henrique', papel: 'Pajem', genero: 'm', arquivo: 'manual-pajem.html', convite: 'cortejo' },
   { senha: 'paisdanoiva', nome: 'Fátima e Zenildo', papel: 'Pais da Noiva', genero: 'plural', arquivo: 'manual-pais-noiva.html' },
   { senha: 'paisdonoivo', nome: 'Filomena e José Carlos', papel: 'Pais do Noivo', genero: 'plural', arquivo: 'manual-pais-noivo.html' }
 ];
