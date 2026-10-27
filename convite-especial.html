@@ -109,11 +109,6 @@
 const CONVITE_DB = [
   { senha: 'somospadrinhosel', nome: 'Edmar e Lorrane', papel: 'Padrinhos', genero: 'plural', convite: 'padrinho' },
   { senha: 'somospadrinhosjr', nome: 'Jaqueline e Roberto', papel: 'Padrinhos', genero: 'plural', convite: 'padrinho' },
-  { senha: 'somospadrinhosbv', nome: 'Bruno e Vanessa', papel: 'Padrinhos', genero: 'plural', convite: 'padrinho' },
-  { senha: 'somospadrinhospg', nome: 'Priscila e Geovane', papel: 'Padrinhos', genero: 'plural', convite: 'padrinho' },
-  { senha: 'somospadrinhosrv', nome: 'Rafaela e Vagner', papel: 'Padrinhos', genero: 'plural', convite: 'padrinho' },
-  { senha: 'somospadrinhosif', nome: 'Ivanilda e Fábio', papel: 'Padrinhos', genero: 'plural', convite: 'padrinho' },
-  { senha: 'somospadrinhosjb', nome: 'Julia e Bruno', papel: 'Padrinhos', genero: 'plural', convite: 'padrinho' },
   { senha: 'joaopadrinho', nome: 'João Vitor', papel: 'Padrinho', genero: 'm', convite: 'padrinho' },
   { senha: 'eduardopadrinho', nome: 'Eduardo', papel: 'Padrinho', genero: 'm', convite: 'padrinho' },
   { senha: 'giovanipadrinho', nome: 'Giovani', papel: 'Padrinho', genero: 'm', convite: 'padrinho' },
@@ -124,6 +119,7 @@ const CONVITE_DB = [
   { senha: 'manzanomadrinha', nome: 'Adriana Manzano', papel: 'Madrinha', genero: 'f', convite: 'padrinho' },
   { senha: 'isabelamadrinha', nome: 'Isabela', papel: 'Madrinha', genero: 'f', convite: 'padrinho' },
   { senha: 'marcelamadrinha', nome: 'Marcela', papel: 'Madrinha', genero: 'f', convite: 'padrinho' },
+  { senha: 'priscilamadrinha', nome: 'Priscila', papel: 'Madrinha', genero: 'f', convite: 'padrinho' },
   { senha: 'geovanadamadehonra', nome: 'Geovana', papel: 'Demoiselle', genero: 'f', convite: 'cortejo' },
   { senha: 'larissadamadehonra', nome: 'Larissa', papel: 'Demoiselle', genero: 'f', convite: 'cortejo' },
   { senha: 'felipehomemdehonra', nome: 'Felipe', papel: 'Groomsmen', genero: 'm', convite: 'cortejo' },
@@ -243,6 +239,14 @@ function responder(resposta) {
   if (resposta === 'aceito') telaAceito(p); else telaRecusado(p);
 }
 
+function usarRespostaLocal(found) {
+  let respostaSalva = null;
+  try { respostaSalva = localStorage.getItem(chave(found)); } catch (e) {}
+  if (respostaSalva === 'aceito') telaAceito(found);
+  else if (respostaSalva === 'recusado') telaRecusado(found);
+  else telaPergunta(found);
+}
+
 (function init() {
   try {
     if (FIREBASE_CONFIG.apiKey && typeof firebase !== 'undefined') {
@@ -256,12 +260,21 @@ function responder(resposta) {
   if (!found) { telaInvalida(); return; }
   PESSOA_ATUAL = found;
 
-  let respostaSalva = null;
-  try { respostaSalva = localStorage.getItem(chave(found)); } catch (e) {}
-
-  if (respostaSalva === 'aceito') telaAceito(found);
-  else if (respostaSalva === 'recusado') telaRecusado(found);
-  else telaPergunta(found);
+  if (db) {
+    /* o Firebase manda: se a Jéssica apagar a resposta de lá, a pergunta volta a aparecer */
+    db.collection('convites_especiais').doc(normalizarSenha(found.senha)).get().then((doc) => {
+      if (doc.exists && doc.data().resposta) {
+        const resposta = doc.data().resposta;
+        try { localStorage.setItem(chave(found), resposta); } catch (e) {}
+        if (resposta === 'aceito') telaAceito(found); else telaRecusado(found);
+      } else {
+        try { localStorage.removeItem(chave(found)); } catch (e) {}
+        telaPergunta(found);
+      }
+    }).catch(() => { usarRespostaLocal(found); });
+  } else {
+    usarRespostaLocal(found);
+  }
 })();
 </script>
 
