@@ -1,7 +1,18 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+<!--
+  © 2026 Jéssica e Rafael — Todos os direitos reservados.
+  Este material (design, textos, fotos, vídeos, músicas, estrutura e código) foi criado
+  exclusivamente para o casamento de Jéssica e Rafael, em 10/07/2027.
+  É proibido copiar, redistribuir, revender, sublicenciar ou adaptar este material,
+  total ou parcialmente, sem autorização prévia e por escrito dos autores.
+  Proteção: Lei nº 9.610/1998 (Direitos Autorais) e Lei nº 9.609/1998 (Programas de Computador).
+-->
 <meta charset="UTF-8">
+<meta name="author" content="Jéssica e Rafael">
+<meta name="copyright" content="© 2026 Jéssica e Rafael. Todos os direitos reservados.">
+<meta name="robots" content="noindex, nofollow, noarchive">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Convite Especial — Jéssica & Rafael</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -9,6 +20,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-check-compat.js"></script>
 <style>
   :root {
     --branco: #FAFAFA;
@@ -102,6 +114,7 @@
   <div id="conteudo">
     <p class="invalido">Carregando seu convite...</p>
   </div>
+  <p style="font-size:.64rem;letter-spacing:.04em;color:#8a8f98;margin:22px 0 0;text-align:center;">© 2026 Jéssica e Rafael · Todos os direitos reservados</p>
 </div>
 
 <script>
@@ -152,6 +165,8 @@ const FIREBASE_CONFIG = {
   appId: "1:33900922338:web:0f3ce6b72849164ccf65bb"
 };
 let db = null;
+/* App Check (opcional): cole aqui a chave do site reCAPTCHA v3 SOMENTE depois de registrar o app no Firebase. Vazio = desligado. */
+const APPCHECK_SITE_KEY = '';
 
 function normalizarSenha(s) { return (s || '').trim().toLowerCase().replace(/\s+/g, ''); }
 function getParam(name) { return new URLSearchParams(location.search).get(name); }
@@ -251,6 +266,9 @@ function usarRespostaLocal(found) {
   try {
     if (FIREBASE_CONFIG.apiKey && typeof firebase !== 'undefined') {
       firebase.initializeApp(FIREBASE_CONFIG);
+      if (APPCHECK_SITE_KEY && firebase.appCheck) {
+        try { firebase.appCheck().activate(APPCHECK_SITE_KEY, true); } catch (e) { console.log('App Check:', e); }
+      }
       db = firebase.firestore();
     }
   } catch (e) { console.log('Erro ao iniciar o Firebase:', e); }
