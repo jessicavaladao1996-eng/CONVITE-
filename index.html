@@ -550,7 +550,7 @@ body { font-family: 'Playfair Display', serif; background-color: var(--branco); 
       <p id="login-status" style="min-height:1.3em;color:#8B0000;font-family:'Montserrat',sans-serif;font-size:0.85rem;"></p>
       <button type="submit" id="login-entrar">Entrar</button>
     </form>
-    <p style="margin-top:18px;"><span id="login-noivos" style="font-size:0.72rem;color:#aaa;text-decoration:underline;cursor:pointer;">acesso da equipe (noivos e cerimonial)</span> <span style="font-size:0.6rem;color:#ccc;">v2.7</span></p>
+    <p style="margin-top:18px;"><span id="login-noivos" style="font-size:0.72rem;color:#aaa;text-decoration:underline;cursor:pointer;">acesso da equipe (noivos, cerimonial e portaria)</span> <span style="font-size:0.6rem;color:#ccc;">v2.7</span></p>
   </div>
 </div>
 <!-- Painel dos noivos -->
@@ -1069,8 +1069,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 
 /* ===== Sistema de convidados, ingressos e painel dos noivos ===== */
-let EQUIPE = null;      /* conta logada (Firebase Authentication): noivos ou cerimonial */
-let PAPEL = null;       /* 'noivos' | 'cerimonial' | 'sem-permissao' | 'erro' */
+let EQUIPE = null;      /* conta logada (Firebase Authentication): noivos, cerimonial ou portaria */
+let PAPEL = null;       /* 'noivos' | 'cerimonial' | 'porteiro' | 'sem-permissao' | 'erro' */
 let PAPEL_CACHE = { uid: null, prom: null };
 let AUTH_PRONTO = Promise.resolve();
 let CONVIDADO = (function () {
@@ -1089,13 +1089,15 @@ function gerarCodigo() {
   let c = ''; for (let x = 0; x < 6; x++) c += alf[Math.floor(Math.random() * alf.length)];
   return c;
 }
+const PAPEIS_EQUIPE = ['noivos', 'cerimonial', 'porteiro'];
+function ehEquipe() { return !!(EQUIPE && PAPEIS_EQUIPE.indexOf(PAPEL) !== -1); }
 function mostrarChip() {
-  const equipe = !!(EQUIPE && (PAPEL === 'noivos' || PAPEL === 'cerimonial'));
+  const equipe = ehEquipe();
   let ch = document.getElementById('chip-convidado');
   if (!CONVIDADO && !equipe) { if (ch) ch.remove(); return; }
   if (!ch) { ch = document.createElement('div'); ch.id = 'chip-convidado'; ch.className = 'chip-convidado'; document.body.appendChild(ch); }
   if (equipe) {
-    ch.textContent = '🔐 ' + (PAPEL === 'noivos' ? 'Noivos' : 'Cerimonial') + ' · toque p/ abrir o painel';
+    ch.textContent = PAPEL === 'porteiro' ? '🔐 Portaria · toque p/ abrir a câmera' : '🔐 ' + (PAPEL === 'noivos' ? 'Noivos' : 'Cerimonial') + ' · toque p/ abrir o painel';
     ch.onclick = () => abrirPainel();
   } else {
     ch.textContent = '';
@@ -1389,7 +1391,7 @@ async function fluxoTicket(id) {
     if (!fbAuth) { div.innerHTML = '<h2>⚠️</h2><p>Login da equipe indisponível agora.</p>'; return; }
     if (!EQUIPE) {
       div.innerHTML = '<h2 style="margin-bottom:8px;">🔐 Validação de ingressos</h2>' +
-        '<p style="margin-bottom:14px;opacity:.8;">Entre com a conta da equipe (noivos ou cerimonial).</p>' +
+        '<p style="margin-bottom:14px;opacity:.8;">Entre com a conta da equipe (noivos, cerimonial ou portaria).</p>' +
         '<div style="width:100%;max-width:320px;text-align:left;">' + formLoginEquipeHtml() + '</div>';
       ligarFormLoginEquipe(div, validar);
       return;
@@ -1420,6 +1422,9 @@ function carregarPapel(user) {
     try {
       if (await tentar('convidados')) return 'noivos';
       if (await tentar('checkins')) return 'cerimonial';
+      /* portaria: só consegue LER um ingresso/entrada pelo código (não lista nada) */
+      try { await comTimeout(db.collection('tickets').doc('verificacao-de-acesso').get(), 10000); return 'porteiro'; }
+      catch (e) { if (!(e && e.code === 'permission-denied')) throw e; }
       return 'sem-permissao';
     } catch (e) { return 'erro'; }
   })();
@@ -1538,7 +1543,7 @@ async function validarIngresso(id) {
   }
 }
 
-/* ---------- Leitor de QR Code pela câmera (painel dos noivos e do cerimonial) ---------- */
+/* ---------- Leitor de QR Code pela câmera (noivos, cerimonial e portaria) ---------- */
 const SCANNER = { sessao: 0, stream: null, ativo: false, ocupado: false, modo: null, det: null, canvas: null, ultimo: { id: null, t: 0 }, timer: null, jsqrProm: null, liberados: 0 };
 
 function esperarMs(ms) { return new Promise((r) => setTimeout(r, ms)); }
@@ -1677,7 +1682,7 @@ function pararScanner() {
 }
 
 async function abrirScanner() {
-  if (!(PAPEL === 'noivos' || PAPEL === 'cerimonial') || !db) return;
+  if (!ehEquipe() || !db) return;
   pararScanner();
   const minha = SCANNER.sessao;
   SCANNER.liberados = 0; SCANNER.ultimo = { id: null, t: 0 };
@@ -1782,7 +1787,7 @@ function renderSemPermissao() {
   const uid = (EQUIPE && EQUIPE.uid) || '';
   el.innerHTML = barraConta(false) +
     '<p><b>Esta conta ainda não tem permissão.</b></p>' +
-    '<p><small>Se você é dos noivos ou do cerimonial, envie o código abaixo para quem cuida do site, para liberar o acesso:</small></p>' +
+    '<p><small>Se você é dos noivos, do cerimonial ou da portaria, envie o código abaixo para quem cuida do site, para liberar o acesso:</small></p>' +
     '<p style="word-break:break-all;"><b>' + escapeHtml(uid) + '</b></p>' +
     '<button class="painel-btn" data-acao="copiaruid" data-uid="' + escapeAttr(uid) + '">Copiar código</button>' +
     '<button class="painel-btn" data-acao="tentarpapel">Já liberaram? Verificar de novo</button>';
@@ -1796,6 +1801,7 @@ async function mostrarPainelConformePapel() {
   if (!PAPEL) { el.innerHTML = '<p>Verificando acesso...</p>'; PAPEL = await carregarPapel(EQUIPE); mostrarChip(); }
   if (PAPEL === 'noivos') { if (tit) tit.textContent = 'Painel dos Noivos'; await renderPainel(); return; }
   if (PAPEL === 'cerimonial') { if (tit) tit.textContent = 'Painel do Cerimonial'; await renderPainelCerimonial(); return; }
+  if (PAPEL === 'porteiro') { if (tit) tit.textContent = 'Portaria'; renderPainelPorteiro(); return; }
   renderSemPermissao();
 }
 
@@ -1808,6 +1814,17 @@ async function recarregarPainelAtual() {
   const nf = document.getElementById('filtro-ingressos');
   if (nf && f) { nf.value = f; nf.dispatchEvent(new Event('input', { bubbles: true })); }
   if (modal) modal.scrollTop = y;
+}
+
+/* Portaria: só a câmera para ler os ingressos. Nenhuma lista, nome de convidado ou número aparece aqui. */
+function renderPainelPorteiro() {
+  const el = document.getElementById('painel-conteudo');
+  if (!db) { el.innerHTML = '<p>A portaria funciona apenas no site publicado.</p>'; return; }
+  el.innerHTML = '<p style="margin:0 0 10px;"><small>Conectado: <b>' + escapeHtml((EQUIPE && EQUIPE.email) || '') + '</b></small><br>' +
+    '<button class="painel-btn" data-acao="sair" style="background:#777;">Sair</button></p>' +
+    '<div class="painel-sec">🚪 Portaria</div>' +
+    '<p><small>Toque no botão, aponte a câmera para o QR Code do ingresso e a entrada é liberada na hora.</small></p>' +
+    '<button class="painel-btn" data-acao="escanear" style="font-size:1.1rem;padding:18px 20px;width:100%;margin:6px 0;">📷 Abrir câmera e escanear ingressos</button>';
 }
 
 async function renderPainelCerimonial() {
@@ -1963,7 +1980,7 @@ async function renderPainel() {
 function fecharPainel() {
   closeModal('modal-painel');
   /* sem login (nem de convidado, nem da equipe) o convite continua trancado atrás da tela de código */
-  const equipe = !!(EQUIPE && (PAPEL === 'noivos' || PAPEL === 'cerimonial'));
+  const equipe = ehEquipe();
   if (equipe || CONVIDADO) closeModal('modal-login'); else openModal('modal-login');
 }
 async function abrirPainel() {
